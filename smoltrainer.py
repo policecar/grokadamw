@@ -3,11 +3,14 @@ smoltrainer.py and dummydataset.jsonl are copied from https://github.com/nisten/
 with small modifications.
 """
 
-import logging
 import json
+import logging
+import os
 import torch
 import torch.nn as nn
 import warnings
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 from datasets import load_dataset, Dataset, concatenate_datasets
 from grokadamw import GrokAdamW
@@ -127,7 +130,7 @@ def main():
         _ = AutoConfig.from_pretrained(MODEL_NAME)
         tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
         model = AutoModelForCausalLM.from_pretrained(
-            MODEL_NAME, torch_dtype=torch.bfloat16
+            MODEL_NAME, torch_dtype=torch.bfloat16, use_cache=False
         )
     except Exception as e:
         logger.error(f"❌ Failed to load model or tokenizer: {str(e)}")
@@ -167,6 +170,7 @@ def main():
             truncation=True,
             padding="max_length",
             max_length=MAX_LENGTH,
+            return_tensors="pt"
         )
 
     logger.info("🔢 Tokenizing dataset")
@@ -182,7 +186,7 @@ def main():
         gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
         learning_rate=LEARNING_RATE,
         weight_decay=0.01,
-        bf16=True,
+        # bf16=True,
         logging_steps=10,
         save_steps=300,
         save_total_limit=10,
@@ -224,6 +228,7 @@ def main():
         train_dataset=tokenized_dataset,
         eval_dataset=tokenized_dataset.select(range(min(1000, len(tokenized_dataset)))),
         data_collator=data_collator,
+        tokenizer=tokenizer,
         optimizers=(optimizer, None),  # This line tells it to use GrokAdamW
     )
 
